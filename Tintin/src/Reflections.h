@@ -32,13 +32,26 @@ namespace tintin
 	class Metal : public Material
 	{
 	public:
-		Metal(const lux::Vector& albedo) : m_Albedo(albedo) {}
+		Metal(const lux::Vector& albedo, double fuzz);
 		~Metal() {}
 
 		bool Scatter(const Ray& rayIn, const HitRecord& rec,
 			lux::Vector& attenuation, Ray& rayScattered) const override;
 	private:
 		lux::Vector m_Albedo;
+		double m_Fuzz;
+	};
+	/*-------------------Dielectric-------------------*/
+	class Dielectric : public Material
+	{
+	public:
+		Dielectric(double refractiveIndex);
+		~Dielectric() {}
+
+		bool Scatter(const Ray& rayIn, const HitRecord& rec,
+			lux::Vector& attenuation, Ray& rayScattered) const override;
+	private:
+		double m_RefractiveIndex;
 	};
 
 }

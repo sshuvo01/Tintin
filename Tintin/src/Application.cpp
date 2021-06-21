@@ -9,15 +9,9 @@
 #include "Sphere.h"
 #include "Camera.h"
 #include "Reflections.h"
-
-std::random_device rd;
-std::mt19937 gen(rd());
-std::uniform_real_distribution<> dis(0.0, 0.99999);
-
-static double drand49()
-{
-	return dis(gen);
-}
+#include "spdlog/spdlog.h"
+#include "spdlog/spdlog.h"
+#include "spdlog/sinks/stdout_color_sinks.h"
 
 static lux::Vector Color(const tintin::Ray& r) 
 {
@@ -104,7 +98,7 @@ static lux::Vector RandomInUnitSphere()
 	lux::Vector p;
 	do
 	{
-		p = 2.0 * lux::Vector(drand49(), drand49(), drand49()) - lux::Vector(1.0, 1.0, 1.0);
+		p = 2.0 * lux::Vector(tintin::drand49(), tintin::drand49(), tintin::drand49()) - lux::Vector(1.0, 1.0, 1.0);
 	} while (p.magnitude() >= 1.0);
 	return p;
 }
@@ -149,11 +143,77 @@ static lux::Vector Color6(const tintin::Ray& r, const tintin::Hitable* world, in
 	}
 }
 
+tintin::Hitable* RandomScene()
+{
+	using namespace tintin;
+	using namespace lux;
+	int n = 500;
+	Hitable** list = new Hitable*[n + 1];
+	list[0] = new Sphere(Vector(0.0, -1000.0, 0.0), 1000.0, new Lambertian(Vector(0.5, 0.5, 0.5)));
+	
+	int i = 1;
+	for (int a = -11; a < 11; a++)
+	{
+		for (int b = -11; b < 11; b++)
+		{
+			double chooseMat = drand49();
+			Vector center(a + 0.9 * drand49(), 0.2, b + 0.9 * drand49());
+			if ((center - Vector(4.0, 0.2, 0.0)).magnitude() > 0.9)
+			{
+				if (chooseMat < 0.8)
+				{
+					list[i++] = new Sphere(center, 0.2, 
+						new Lambertian(Vector(drand49()*drand49(), drand49()*drand49(), drand49()*drand49())));
+				}
+				else if (chooseMat < 0.95) // metal
+				{
+					Vector pos( 0.5 * (1.0 + drand49()), 0.5 * (1.0 + drand49()), 0.5 * (1.0 + drand49()) );
+					list[i++] = new Sphere(center, 0.2, new Metal(pos, 0.5 * drand49()));
+				}
+				else
+				{
+					list[i++] = new Sphere(center, 0.2, new Dielectric(1.5));
+				}
+			}
+		}
+	}
+
+	list[i++] = new Sphere(Vector(0.0, 1.0, 0.0), 1.0, new Dielectric(1.5));
+	list[i++] = new Sphere(Vector(-4.0, 1.0, 0.0), 1.0, new Lambertian(Vector(0.4, 0.2, 0.1)));
+	list[i++] = new Sphere(Vector(4.0, 1.0, 0.0), 1.0, new Metal(Vector(0.7, 0.6, 0.5), 0.0));
+
+	spdlog::info("Random Scene created");
+	return new HitableList(list, i);
+}
+
 int main()
 {
-	//int nx = 200, ny = 100;
+	/*
+	spdlog::set_level(spdlog::level::debug); // Set global log level to debug
+	spdlog::info("Welcome to spdlog!");
+	spdlog::error("Some error message with arg: {}", 1);
 
-	std::ofstream file("res/test11.ppm");
+	spdlog::warn("Easy padding in numbers like {:08d}", 12);
+	spdlog::critical("Support for int: {0:d};  hex: {0:x};  oct: {0:o}; bin: {0:b}", 42);
+	spdlog::info("Support for floats {:03.2f}", 1.23456);
+	spdlog::info("Positional args are {1} {0}..", "too", "supported");
+	spdlog::info("{:<30}", "left aligned");
+	spdlog::info("Hello {} {} !!", "param1", 123.4);
+
+	spdlog::debug("This message should be displayed..");
+
+	// change log pattern
+	spdlog::set_pattern("[%H:%M:%S %z] [%n] [%^---%L---%$] [thread %t] %v");
+
+	
+	// change log pattern
+	spdlog::set_pattern("[%H:%M:%S %z] [%n] [%^---%L---%$] [thread %t] %v");
+	spdlog::info("halo wald");
+	std::cout << "Hello world!" << std::endl;
+	*/
+	
+	///////////////
+	std::ofstream file("res/test17.ppm");
 
 	if (!file.is_open())
 	{
@@ -161,28 +221,41 @@ int main()
 		exit(-1);
 	}
 
-	int nx = 200, ny = 100, ns = 100;
+	//int nx = 200*3, ny = 100*3, ns = 500;
+	const int ns = 500;
+	const auto aspect_ratio = 3.0 / 2.0;
+	const int nx = 1200;
+	const int ny = static_cast<int>(nx / aspect_ratio);
+
 	file << "P3\n" << nx << " " << ny << "\n255\n";
 	
 	lux::Vector llc(-2.0, -1.0, -1.0);
 	lux::Vector horizontal(4.0, 0.0, 0.0);
 	lux::Vector vertical(0.0, 2.0, 0.0);
 	lux::Vector origin(0.0, 0.0, 0.0);
-
+	/*
 	tintin::Hitable* list[4];
 	list[0] = new tintin::Sphere(lux::Vector(0.0, 0.0, -1.0), 0.5, 
-		new tintin::Lambertian(lux::Vector(0.8, 0.3, 0.3)));
+		new tintin::Lambertian(lux::Vector(0.1, 0.2, 0.5)));
 	list[1] = new tintin::Sphere(lux::Vector(0.0, -100.5, -1.0), 100.0,
 		new tintin::Lambertian(lux::Vector(0.8, 0.8, 0.0)));
 	list[2] = new tintin::Sphere(lux::Vector(1.0, 0.0, -1.0), 0.5,
-		new tintin::Metal(lux::Vector(0.8, 0.6, 0.2)));
+		new tintin::Metal(lux::Vector(0.8, 0.6, 0.2), 0.3));
 	list[3] = new tintin::Sphere(lux::Vector(-1.0, 0.0, -1.0), 0.5,
-		new tintin::Metal(lux::Vector(0.8, 0.8, 0.8)));
-
+		new tintin::Dielectric(1.5));
+	list[4] = new tintin::Sphere(lux::Vector(-1.0, 0.0, -1.0), -0.45,
+		new tintin::Dielectric(1.5));
+	*/
 	//list[1] = new tintin::Sphere(lux::Vector(0.0, -100.5, -1.0), 100.0);
-	tintin::Hitable* world = new tintin::HitableList(list, 4);
-	
-	tintin::Camera cam;
+	//tintin::Hitable* world = new tintin::HitableList(list, 5);
+	tintin::Hitable* world = RandomScene();
+	//
+	lux::Vector lookFrom(13.0, 2.0, 3.0);
+	lux::Vector lookAt(0.0, 0.0, 0.0);
+	double focusDistance = 10.0;
+	double aperture = 0.1;
+	tintin::Camera cam(lookFrom, lookAt,
+		lux::Vector(0.0, 1.0, 0.0), 20.0, double(nx) / double(ny), aperture, focusDistance);
 
 	for (int j = ny - 1; j >= 0; j--)
 	{
@@ -191,8 +264,8 @@ int main()
 			lux::Vector col(0.0, 0.0, 0.0);
 			for (int k = 0; k < ns; k++)
 			{
-				double u = double(i + drand49()) / double(nx);
-				double v = double(j + drand49()) / double(ny);
+				double u = double(i + tintin::drand49()) / double(nx);
+				double v = double(j + tintin::drand49()) / double(ny);
 				//tintin::Ray r(origin, llc + u * horizontal + v * vertical);
 				tintin::Ray r = cam.GetRay(u, v);
 				col += Color6(r, world, 0);
@@ -208,7 +281,8 @@ int main()
 	}
 
 	file.close();
-	std::cout << "Done!\n";
+	//std::cout << "Done!\n";
+	spdlog::info("Rendering finished");
 	std::cin.get();
 	return 0;
 }
